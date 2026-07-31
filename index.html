@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Aeropath Algorithm & Cost Engine</title>
+  <style>
+    body { font-family: sans-serif; background: #091a23; color: #e9f6f8; padding: 30px; max-width: 650px; margin: auto; }
+    .card { background: #112b38; border: 1px solid #30505a; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; gap: 12px; }
+    input, button { padding: 12px; font-size: 16px; border-radius: 6px; border: 1px solid #30505a; background: #0a202a; color: #fff; }
+    input { text-transform: uppercase; font-weight: bold; }
+    button { background: #43dbe0; color: #0b2530; font-weight: bold; cursor: pointer; border: none; }
+    button:hover { background: #35b3b8; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Aeropath Exact Formula Engine</h2>
+    <label>Distance (d in NM)</label>
+    <input id="dist" type="number" value="1200">
+    
+    <label>Wind Speed (k in knots)</label>
+    <input id="windSpeed" type="number" value="25">
+    
+    <label>Wind Type (headwind / crosswind / tailwind)</label>
+    <input id="windType" value="headwind">
+
+    <label>Radar Reflectivity (r)</label>
+    <input id="radar" type="number" value="35">
+
+    <label>Lightning Flash Rate (l)</label>
+    <input id="lightning" type="number" value="5">
+
+    <label>Air Density (kg/m³)</label>
+    <input id="density" type="number" step="0.001" value="1.225">
+
+    <button onclick="runAlgorithmAndDownload()">Run Formulas & Download Report</button>
+  </div>
+
+  <script>
+    function runAlgorithmAndDownload() {
+      let d = parseFloat(document.getElementById('dist').value);
+      let k = parseFloat(document.getElementById('windSpeed').value);
+      let wType = document.getElementById('windType').value.toLowerCase();
+      let r = parseFloat(document.getElementById('radar').value);
+      let l = parseFloat(document.getElementById('lightning').value);
+      let density = parseFloat(document.getElementById('density').value);
+
+      // 1. Wind Cost (w)
+      let w = 0.1 * k;
+      if (wType.includes('cross')) w = 0.01 * k;
+      if (wType.includes('tail')) w = 0.001 * k;
+
+      // 2. Angle cost (a) - assume standard 15 deg turn angle = 1 + (15/100) = 1.15
+      let angle = 15;
+      let a = 1 + (angle / 100);
+
+      // 3. Turbulence (t) - eddy dissipation rate + 1 (assume EDR = 0.05 -> 1.05)
+      let t = 1.05;
+
+      // 4. Performance Factor (p) - Boeing 737 = 1
+      let p = 1.0;
+
+      // 5. Clear Cost Formula: clear = ((d((a+t)*w))/p)*(1+density)
+      let clear = ((d * ((a + t) * w)) / p) * (1 + density);
+
+      // 6. Storm Formula: storm = ((d((.6r)+(.4l)*w))/p)*(1+density)
+      let storm = ((d * ((0.6 * r) + (0.4 * l) * w)) / p) * (1 + density);
+
+      // 7. Step Cost (s ₙ) = clear + storm + airspace restriction cost (assume 0 for baseline)
+      let s_n = clear + storm + 0;
+
+      // 8. Effective Range = max range - (salvaged distance + wind cost)
+      let maxRange = 3550;
+      let salvagedDistance = 50; 
+      let effectiveRange = maxRange - (salvagedDistance + w);
+
+      // 9. Thunderstorm Clearance = (.1k) * 1000
+      let clearance = (0.1 * k) * 1000;
+
+      // 10. Limits Check
+      let limitsPassed = true;
+      let limitReason = "All operational limits respected.";
+      if (r > 50) { limitsPassed = false; limitReason = "LIMIT VIOLATED: r > 50 (No fly zone)"; }
+      if (l > 15) { limitsPassed = false; limitReason = "LIMIT VIOLATED: l > 15 (No fly zone)"; }
+      if (k > 30) { limitsPassed = false; limitReason = "LIMIT VIOLATED: k > 30 (No fly zone)"; }
+
+      // Build text file report matching your rules strictly
+      let report = `====================================================\n`;
+      reportText = ` AEROPATH ALGORITHM & COST ENGINE REPORT\n`;
+      reportText += `====================================================\n\n`;
+      reportText += `--- INPUT PARAMETERS ---\n`;
+      reportText += `Distance (d): ${d} NM\n`;
+      reportText += `Wind Speed (k): ${k} knots (${wType})\n`;
+      reportText += `Radar Reflectivity (r): ${r}\n`;
+      reportText += `Lightning Flash Rate (l): ${l}\n`;
+      reportText += `Air Density: ${density} kg/m³\n\n`;
+      
+      reportText += `--- FORMULA EVALUATIONS ---\n`;
+      reportText += `Wind Cost (w): ${w.toFixed(4)}\n`;
+      reportText += `Angle Cost (a): ${a.toFixed(2)}\n`;
+      reportText += `Clear Cost formula result: ${clear.toFixed(2)}\n`;
+      reportText += `Storm Cost formula result: ${storm.toFixed(2)}\n`;
+      reportText += `Step Cost (s ₙ): ${s_n.toFixed(2)}\n`;
+      reportText += `Effective Range: ${effectiveRange.toFixed(2)} NM\n`;
+      reportText += `Thunderstorm Vertical Clearance: ${clearance.toFixed(0)} feet above storm\n\n`;
+
+      reportText += `--- LIMITS & SAFETY CHECK ---\n`;
+      reportText += `Status: ${limitsPassed ? "NOMINAL" : "REROUTE REQUIRED"}\n`;
+      reportText += `Details: ${limitReason}\n\n`;
+      reportText += `Generated: ${new Date().toUTCString()}\n`;
+
+      let blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+      let link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `Aeropath_Algorithm_Report.txt`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+
+</body>
+</html>
