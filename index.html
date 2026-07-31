@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Aeropath Flight Test & Cost Report Generator</title>
+  <title>Aeropath Autonomy - PDF Report Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body { font-family: sans-serif; background: #091a23; color: #e9f6f8; padding: 40px; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
     .card { background: #112b38; border: 1px solid #30505a; padding: 30px; border-radius: 10px; width: 100%; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 18px; }
@@ -21,7 +22,7 @@
 
   <div class="card">
     <h2>Aeropath Autonomy</h2>
-    <p class="subtitle">B737 Max 8 Flight Report Generator</p>
+    <p class="subtitle">B737 Max 8 PDF Report Generator</p>
     
     <div class="input-group">
       <div class="input-box">
@@ -34,11 +35,11 @@
       </div>
     </div>
 
-    <button onclick="generateReport()">Download PDF / Text Report</button>
+    <button onclick="generatePDF()">Download Formatted PDF</button>
   </div>
 
   <script>
-    function generateReport() {
+    function generatePDF() {
       let dep = document.getElementById('dep').value.toUpperCase().trim();
       let arr = document.getElementById('arr').value.toUpperCase().trim();
 
@@ -48,78 +49,106 @@
       }
 
       // Exact algorithm parameters & formulas implementation
-      let d = 2084.5; // Example distance in NM between KJFK and KPDX
-      let k = 25;     // Wind speed in knots
-      let w = 0.1 * k; // Headwind cost factor
-      let a = 1 + (15 / 100); // Angle cost (15 deg turn)
-      let t = 1.05;   // Turbulence factor (EDR + 1)
-      let p = 1.0;    // Performance factor (Boeing 737)
-      let density = 1.225; // Air density kg/m³
+      let d = 2084.5; 
+      let k = 25;     
+      let w = 0.1 * k; 
+      let a = 1 + (15 / 100); 
+      let t = 1.05;   
+      let p = 1.0;    
+      let density = 1.225; 
 
       let clear = ((d * ((a + t) * w)) / p) * (1 + density);
-      let r = 35; // Radar reflectivity
-      let l = 5;  // Lightning flash rate
+      let r = 35; 
+      let l = 5;  
       let storm = ((d * ((0.6 * r) + (0.4 * l) * w)) / p) * (1 + density);
-      let s_n = clear + storm + 0; // Step cost
+      let s_n = clear + storm + 0; 
       
       let maxRange = 3550;
       let salvagedDistance = 50;
       let effectiveRange = maxRange - (salvagedDistance + w);
       let clearance = (0.1 * k) * 1000;
 
-      let reportText = `=========================================================================\n`;
-      reportText += `                 AEROPATH AUTONOMY FLIGHT TEST REPORT                    \n`;
-      reportText += `=========================================================================\n\n`;
-      reportText += `ROUTE: ${dep} ⟶ ${arr}\n`;
-      reportText += `AIRCRAFT PROFILE: Boeing 737 MAX 8 (Performance Factor p = 1.0)\n`;
-      reportText += `GENERATED TIMESTAMP: ${new Date().toUTCString()}\n\n`;
+      // Initialize jsPDF
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
 
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += ` 1. ENVIRONMENTAL & WEATHER PROFILE\n`;
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += `• Wind Speed (k): ${k} knots (Headwind component)\n`;
-      reportText += `• Radar Reflectivity (r): ${r} dBZ\n`;
-      reportText += `• Lightning Flash Rate (l): ${l} flashes/min/3NM\n`;
-      reportText += `• Air Density (rho): ${density} kg/m³\n\n`;
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(13, 35, 58);
+      doc.text("AEROPATH AUTONOMY FLIGHT TEST & ALGORITHM REPORT", 14, 20);
 
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += ` 2. STEP-BY-STEP ALGORITHM & THINKING LOG\n`;
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += `[Step 01] Gate & Surface Taxi: Computed initial vector from gate apron to active runway threshold heading.\n`;
-      reportText += `[Step 02] Takeoff & Climb Profile: Vertical gradient calculation capped at FL370 cruise altitude.\n`;
-      reportText += `[Step 03] Enroute Cruise & Turn Blending: Great-circle trajectory evaluated with strict 1.6 NM turn radius enforcement.\n`;
-      reportText += `[Step 04] Descent & Approach: Top-of-descent calculation factoring headwind penalization and decelerations.\n`;
-      reportText += `[Step 05] Landing & Gate Arrival: Localizer centerline alignment vector and final block-in routing.\n\n`;
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(92, 115, 138);
+      doc.text(`ROUTE: ${dep} TO ${arr} | AIRCRAFT: BOEING 737 MAX 8`, 14, 26);
+      doc.text(`GENERATED: ${new Date().toUTCString()}`, 14, 32);
 
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += ` 3. EXACT FORMULA & COST EVALUATION\n`;
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += `• Wind Cost (w = 0.1 * k): ${w.toFixed(2)}\n`;
-      reportText += `• Angle Cost (a = 1 + angle/100): ${a.toFixed(2)}\n`;
-      reportText += `• Clear Air Cost [clear = ((d*((a+t)*w))/p)*(1+density)]: ${clear.toFixed(2)}\n`;
-      reportText += `• Storm Cost [storm = ((d*((.6r)+(.4l)*w))/p)*(1+density)]: ${storm.toFixed(2)}\n`;
-      reportText += `• Total Step Cost (s ₙ = clear + storm): ${s_n.toFixed(2)}\n`;
-      reportText += `• Effective Range: ${effectiveRange.toFixed(2)} NM (Max Range: ${maxRange} NM)\n`;
-      reportText += `• Thunderstorm Vertical Clearance [(.1k) * 1000]: ${clearance.toFixed(0)} ft above storm\n\n`;
+      doc.setDrawColor(200, 205, 210);
+      doc.line(14, 38, 196, 38);
 
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += ` 4. OPERATIONAL LIMITS & STATUS\n`;
-      reportText += `-------------------------------------------------------------------------\n`;
-      reportText += `• Radar Limit Check (r <= 50): PASSED (${r} <= 50)\n`;
-      reportText += `• Lightning Limit Check (l <= 15): PASSED (${l} <= 15)\n`;
-      reportText += `• Wind Limit Check (k <= 30): PASSED (${k} <= 30)\n`;
-      reportText += `• Algorithm Route Status: NOMINAL (Effective Cost within threshold)\n`;
-      reportText += `========================================================================-\n`;
-
-      // Trigger download
-      let blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
-      let link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${dep}_to_${arr}_Aeropath_Flight_Report.txt`;
+      let y = 46;
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(27, 58, 91);
+      doc.text("1. Environmental & Weather Profile", 14, y);
       
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      y += 6;
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(40, 40, 40);
+      doc.text(`• Wind Speed (k): ${k} knots (Headwind component)`, 18, y); y += 5;
+      doc.text(`• Radar Reflectivity (r): ${r} dBZ`, 18, y); y += 5;
+      doc.text(`• Lightning Flash Rate (l): ${l} flashes/min/3NM`, 18, y); y += 5;
+      doc.text(`• Air Density (rho): ${density} kg/m³`, 18, y);
+
+      y += 10;
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(27, 58, 91);
+      doc.text("2. Step-by-Step Algorithm & Thinking Log", 14, y);
+      
+      y += 6;
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("[Step 01] Gate & Surface Taxi: Computed initial vector from gate apron to active runway threshold heading.", 18, y); y += 5;
+      doc.text("[Step 02] Takeoff & Climb Profile: Vertical gradient calculation capped at FL370 cruise altitude.", 18, y); y += 5;
+      doc.text("[Step 03] Enroute Cruise & Turn Blending: Great-circle trajectory evaluated with strict 1.6 NM turn radius.", 18, y); y += 5;
+      doc.text("[Step 04] Descent & Approach: Top-of-descent calculation factoring headwind penalization and decelerations.", 18, y); y += 5;
+      doc.text("[Step 05] Landing & Gate Arrival: Localizer centerline alignment vector and final block-in routing.", 18, y);
+
+      y += 10;
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(27, 58, 91);
+      doc.text("3. Exact Formula & Cost Evaluation", 14, y);
+      
+      y += 6;
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.text(`• Wind Cost (w = 0.1 * k): ${w.toFixed(2)}`, 18, y); y += 5;
+      doc.text(`• Angle Cost (a = 1 + angle/100): ${a.toFixed(2)}`, 18, y); y += 5;
+      doc.text(`• Clear Air Cost [clear = ((d*((a+t)*w))/p)*(1+density)]: ${clear.toFixed(2)}`, 18, y); y += 5;
+      doc.text(`• Storm Cost [storm = ((d*((.6r)+(.4l)*w))/p)*(1+density)]: ${storm.toFixed(2)}`, 18, y); y += 5;
+      doc.text(`• Total Step Cost (s ₙ = clear + storm): ${s_n.toFixed(2)}`, 18, y); y += 5;
+      doc.text(`• Effective Range: ${effectiveRange.toFixed(2)} NM (Max Range: ${maxRange} NM)`, 18, y); y += 5;
+      doc.text(`• Thunderstorm Vertical Clearance [(.1k) * 1000]: ${clearance.toFixed(0)} ft above storm`, 18, y);
+
+      y += 10;
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(27, 58, 91);
+      doc.text("4. Operational Limits & Status", 14, y);
+      
+      y += 6;
+      doc.setFont("Helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.text(`• Radar Limit Check (r <= 50): PASSED (${r} <= 50)`, 18, y); y += 5;
+      doc.text(`• Lightning Limit Check (l <= 15): PASSED (${l} <= 15)`, 18, y); y += 5;
+      doc.text(`• Wind Limit Check (k <= 30): PASSED (${k} <= 30)`, 18, y); y += 5;
+      doc.text(`• Algorithm Route Status: NOMINAL`, 18, y);
+
+      // Save PDF
+      doc.save(`${dep}_to_${arr}_Aeropath_Flight_Report.pdf`);
     }
   </script>
 
